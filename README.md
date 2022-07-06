@@ -18,6 +18,6 @@ _Based on [Alex Gyver project](https://github.com/AlexGyver/LEDcube) + added acc
 
 <img src="https://github.com/liskior/LED_Cube/blob/master/images/ezgif-1-bda0ad1b1074.gif?raw=true" width="300">
 
-TODO: 5. gravity snake game
+5. gravity snake game
 
 ### 
