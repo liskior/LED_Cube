@@ -5,7 +5,7 @@
 
 const int ACCEL_OFFSET   = 200;
 const int GYRO_OFFSET    = 151;  // 151
-const int GYRO_SENSITITY = 131;  // 131 is sensivity of gyro from data sheet
+const int ENSITITY = 131;  // 131 is sensivity of gyro from data sheet
 const float GYRO_SCALE   = 0.2; //  0.02 by default - tweak as required
 const float LOOP_TIME    = 0.15; // 0.1 = 100ms
 
@@ -42,11 +42,13 @@ int gravZ = 0;
 #define RAIN 1
 #define SIN 2
 #define WATER 3
+#define SNAKE 4
 
 
-#define RAIN_TIMER 1
+#define RAIN_TIMER 5
 #define SIN_TIMER 5
-#define WATER_TIMER 1
+#define WATER_TIMER 5
+#define SNAKE_TIMER 50
 
 #include <SPI.h>
 
@@ -55,6 +57,16 @@ GButton butt2(BUTTON2);
 
 
 uint8_t cubeWater[8][8][8];
+uint8_t snakeLength;
+uint8_t snakeFirst[3] = {0, 0, 0};
+uint8_t snakeLast[3] = {0, 0, 2};
+uint8_t snakeBeforLast[3]  = {0, 0, 1};
+uint8_t snakeX[20];
+uint8_t snakeY[20];
+uint8_t snakeZ[20];
+uint8_t snakeFoodX;
+uint8_t snakeFoodY;
+uint8_t snakeFoodZ;
 uint8_t cube[8][8];
 int8_t currentEffect;
 uint16_t timer;
@@ -102,7 +114,11 @@ void setup() {
     coordZ[i] = random(0, 7);
     cubeWater[coordX[i]][coordY[i]][coordZ[i]] = 1;
   }
-
+  
+  snakeLength = 3;
+  generateFood();
+  
+  
   
   randomSeed(analogRead(0));
 
@@ -117,7 +133,15 @@ void setup() {
   Serial.flush();
   }
 
+void generateFood() {
+  snakeFoodX = random(0, 7);
+  snakeFoodY = random(0, 7);
+  snakeFoodZ = random(0, 7);
+  setVoxel(snakeFoodX, snakeFoodY, snakeFoodZ);
+}
+
 void loop() { 
+  Serial.print(currentEffect);
   butt1.tick();
   if (butt1.isClick()) {
     digitalWrite(GREEN_LED, HIGH);
@@ -150,6 +174,10 @@ void loop() {
       moveWater();
       modeTimer = WATER_TIMER;
       break;
+    case SNAKE:
+      modeTimer = SNAKE_TIMER;
+      snake();
+      break;
   }
   renderCube();
 }
@@ -159,7 +187,10 @@ void changeMode() {
   loading = true;
   timer = 0;
   randomSeed(millis());
-  currentEffect = (currentEffect + 1) % 4;
+  currentEffect = (currentEffect + 1) % 5;
+  if (currentEffect == 4) {
+    initSnake();
+  }
 }
 
 void renderCube() {
@@ -203,7 +234,7 @@ void rain() {
       setVoxel(random(0, 8), 7, random(0, 8));
     }
   }
-  delay(20);
+  //delay(20);
 }
 
 void all() {
@@ -317,7 +348,7 @@ void moveWater() {
         setVoxel(coordX[i], coordY[i], coordZ[i]);  
     }
   }
-  delay(30);
+  //delay(30);
 }
 
 
@@ -362,7 +393,62 @@ void updateAngles() {
   }
   Serial.println();
   
-  gravX = - accAngle[0];;
-  gravZ = accAngle[1];
-  gravY = - accAngle[2];
+  gravX = accAngle[1];
+  gravZ = - accAngle[0];
+  gravY = accAngle[2];
+}
+
+void initSnake() {
+  clearCube();
+  snakeX[0] = 0;
+  snakeY[0] = 0;
+  snakeZ[0] = 0;
+  snakeX[1] = 0;
+  snakeY[1] = 0;
+  snakeZ[1] = 1;
+  snakeX[2] = 0;
+  snakeY[2] = 0;
+  snakeZ[2] = 2;
+  snakeLength = 3;
+  setVoxel(snakeX[0], snakeY[0], snakeZ[0]);
+  setVoxel(snakeX[1], snakeY[1], snakeZ[1]);
+  setVoxel(snakeX[2], snakeY[2], snakeZ[2]);
+  generateFood();
+  timer = 0;
+}
+
+
+void snake() {
+  timer++;
+  if (timer > modeTimer) {
+    updateAngles();
+
+    for (int i = snakeLength; i > 0; i--) {
+      snakeX[i] = snakeX[i - 1];
+      snakeY[i] = snakeY[i - 1];
+      snakeZ[i] = snakeZ[i - 1];
+    }
+
+    snakeX[0] = snakeX[0] - gravX;
+    snakeY[0] = snakeY[0] - gravY;
+    snakeZ[0] = snakeZ[0] - gravZ;
+    
+    if (snakeX[0] == snakeFoodX && snakeY[0] == snakeFoodY && snakeZ[0] == snakeFoodZ) {
+      snakeLength++;
+      generateFood();
+    }
+    else {
+      clearVoxel(snakeX[snakeLength], snakeY[snakeLength], snakeZ[snakeLength]);
+    }
+
+
+    if (!(0 <= snakeX[0] && snakeX[0] < 8 && 0 <= snakeY[0] && snakeY[0] < 8 && 0 <= snakeZ[0] && snakeZ[0] < 8 && !getVoxel(snakeX[0], snakeY[0], snakeZ[0]) ) ) {
+      initSnake();
+      return;
+    }
+    setVoxel(snakeX[0], snakeY[0], snakeZ[0]);
+
+    
+    timer = 0;
+  }
 }
